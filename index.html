@@ -80,7 +80,7 @@
   .dropzone.drag{ border-color:var(--gold); background:rgba(245,184,65,.12); color:var(--cream); transform:translateY(-1px); }
   .dz-icon{ display:flex; justify-content:center; }
   .dz-title{ font-weight:600; color:var(--cream); margin-top:8px; font-size:15px; }
-  .dz-sub{ font-size:12.5px; margin-top:4px; }
+  .dz-sub{ font-size:12.5px; margin:4px 0 0; }
   .kbd{ font-size:11px; background:var(--ink); border:1px solid var(--line); border-radius:5px; padding:1px 5px; }
 
   .addrow{ display:flex; gap:8px; margin-top:14px; }
@@ -107,7 +107,11 @@
   .chip-dot{ width:8px; height:8px; border-radius:50%; flex:none; }
   .chip-thumb{ width:32px; height:32px; border-radius:8px; overflow:hidden; flex:none; display:grid; place-items:center; font-size:11px; font-weight:700; color:#2a1c00; }
   .chip-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .chip-name{ flex:1; min-width:0; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--cream); }
+  
+  /* Zmieniony element na pole tekstowe */
+  .chip-name-input{ flex:1; min-width:0; font-size:13.5px; color:var(--cream); background:rgba(255,255,255,0.03); border:1px solid transparent; border-radius:6px; padding:6px 8px; font-family:inherit; transition:0.2s; }
+  .chip-name-input:focus{ outline:none; border-color:var(--gold); background:var(--ink-2); }
+  .chip-name-input::placeholder{ color:var(--muted); }
 
   .pct-group{ flex:none; display:flex; align-items:center; height:30px; border:1px solid var(--line); border-radius:8px; background:var(--ink-2); }
   .pct-group:focus-within{ border-color:var(--gold); box-shadow:0 0 0 3px rgba(245,184,65,.15); }
@@ -135,8 +139,11 @@
   .modal-card{ position:relative; z-index:1; width:min(420px,100%); text-align:center; background:linear-gradient(180deg,var(--raised),var(--ink-2)); border:1px solid var(--line); border-radius:22px; padding:30px 26px 26px; box-shadow:0 30px 80px rgba(0,0,0,.6); animation:pop .3s cubic-bezier(.2,1.2,.3,1); }
   @keyframes pop{ from{ transform:scale(.9); opacity:0; } to{ transform:scale(1); opacity:1; } }
   .m-eyebrow{ font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); font-weight:700; }
-  .m-media{ width:150px; height:150px; margin:16px auto 14px; border-radius:50%; overflow:hidden; display:grid; place-items:center; color:#2a1c00; font-family:var(--font-d); font-weight:900; font-size:34px; box-shadow:0 0 0 4px rgba(245,184,65,.9), 0 0 0 10px rgba(245,184,65,.2), 0 14px 30px rgba(0,0,0,.5); }
+  
+  /* Powiększone kółko wylosowanego elementu */
+  .m-media{ width:250px; height:250px; margin:16px auto 14px; border-radius:50%; overflow:hidden; display:grid; place-items:center; color:#2a1c00; font-family:var(--font-d); font-weight:900; font-size:34px; box-shadow:0 0 0 4px rgba(245,184,65,.9), 0 0 0 10px rgba(245,184,65,.2), 0 14px 30px rgba(0,0,0,.5); }
   .m-media img{ width:100%; height:100%; object-fit:cover; }
+  
   .m-name{ font-family:var(--font-d); font-weight:900; font-size:26px; margin:4px 0 6px; word-break:break-word; }
   .m-chance{ color:var(--muted); font-size:13px; margin:0 0 20px; }
   .m-actions{ display:flex; flex-direction:column; gap:9px; }
@@ -188,7 +195,7 @@
           <button class="btn btn-ghost" id="clearBtn" disabled>Wyczyść</button>
         </div>
 
-        <p class="hint" id="hint">Wpisz <b>%</b> przy pozycji, żeby ustawić jej szansę na stałe — reszta rozłoży się po równo. Puste pole = automat. Kłódka blokuje aktualną wartość.</p>
+        <p class="hint" id="hint">Wpisz <b>%</b> przy pozycji, żeby ustawić jej szansę na stałe — reszta rozłoży się po równo. Puste pole = automat. Wpisz nazwę w polu przy zdjęciu, żeby dodać tekst.</p>
 
         <ul class="entry-list" id="list"></ul>
         <div class="empty" id="empty">Nic tu jeszcze nie ma.</div>
@@ -272,7 +279,7 @@
   // ---------- helpers ----------
   function colorFor(i){ return PALETTE[i % PALETTE.length]; }
   function reassignColors(){ for(var i=0;i<entries.length;i++){ entries[i].color = colorFor(i); } }
-  function displayName(e){ if(e.label) return e.label; return e.image ? ('Zdjęcie ' + e.photoNo) : ''; }
+  function displayName(e){ return e.label ? e.label : (e.image ? ('Zdjęcie ' + e.photoNo) : 'Bez nazwy'); }
   function truncate(s, n){ return s.length > n ? s.slice(0, n-1) + '…' : s; }
   function clampPct(v){ if(v < 0) return 0; if(v > 100) return 100; return v; }
   function fmtPct(p){ var v = (p < 1) ? Math.round(p*100)/100 : Math.round(p*10)/10; return String(v); }
@@ -284,8 +291,6 @@
   }
 
   // ---------- persistence (localStorage) ----------
-  // The list is stored in THIS browser only. Guarded so the sandboxed
-  // preview (where storage is blocked) still runs without errors.
   function serialize(){
     return entries.map(function(e){
       return { id:e.id, src:e.src, label:e.label, photoNo:e.photoNo, fixedPct:e.fixedPct, isImage: !!e.image };
@@ -298,7 +303,6 @@
     }catch(err){
       var quota = err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22 || err.code === 1014);
       if(quota) showStorageWarn();
-      // if simply blocked (e.g. preview): ignore silently
     }
   }
   function loadState(){
@@ -324,7 +328,6 @@
   function showStorageWarn(){ if(storeWarnEl){ storeWarnEl.classList.add('show'); storeWarnEl.textContent = 'Pamięć przeglądarki jest pełna — najnowsze zmiany mogą się nie zapisać. Usuń kilka pozycji.'; } }
   function hideStorageWarn(){ if(storeWarnEl) storeWarnEl.classList.remove('show'); }
 
-  // Shrink an image to a small JPEG before we keep it (wheel shows it small anyway).
   function downscaleImage(file, cb){
     var reader = new FileReader();
     reader.onload = function(ev){
@@ -439,10 +442,27 @@
       var d = Math.min(avail*0.86, (RADIUS-HUB_DISC)*0.6);
       ctx.save();
       ctx.translate(CENTER,CENTER); ctx.rotate(mid);
+      
       if(e.image){
         ctx.translate(imgR,0); ctx.rotate(Math.PI/2);
         ctx.save(); ctx.beginPath(); ctx.arc(0,0,d/2,0,Math.PI*2); ctx.closePath(); ctx.clip();
-        drawImageCover(e.image, -d/2, -d/2, d, d); ctx.restore();
+        drawImageCover(e.image, -d/2, -d/2, d, d);
+        
+        // --- Tekst nakładany na zdjęcie ---
+        if (e.label) {
+          ctx.fillStyle = 'rgba(0,0,0,0.45)';
+          ctx.fillRect(-d/2, -d/2, d, d);
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = 'white';
+          var fs2 = Math.max(12, Math.min(20, d*0.35));
+          ctx.font = '700 '+fs2+'px "Inter", system-ui, sans-serif';
+          ctx.shadowColor = 'black'; ctx.shadowBlur = 5;
+          ctx.fillText(truncate(e.label, 14), 0, 0);
+          ctx.shadowBlur = 0;
+        }
+        // -----------------------------------
+        
+        ctx.restore();
         ctx.beginPath(); ctx.arc(0,0,d/2,0,Math.PI*2); ctx.lineWidth=Math.max(2,d*0.06); ctx.strokeStyle='rgba(255,255,255,0.92)'; ctx.stroke();
       } else {
         ctx.textAlign='right'; ctx.textBaseline='middle'; ctx.fillStyle='#1a1020';
@@ -519,9 +539,9 @@
     media.innerHTML = '';
     if(e.image){ var im = document.createElement('img'); im.src = e.src; im.alt=''; media.appendChild(im); media.style.background='transparent'; }
     else { media.style.background = e.color; media.textContent = (e.label || '?').slice(0,3).toUpperCase(); }
-    document.getElementById('mName').textContent = displayName(e) || 'Zdjęcie';
+    document.getElementById('mName').textContent = displayName(e);
     document.getElementById('mChance').textContent = 'Szansa: ' + fmtPct(e._pct) + '%';
-    lastWinnerName = displayName(e) || 'Zdjęcie';
+    lastWinnerName = displayName(e);
     currentWinnerId = e.id;
 
     modal.classList.add('open');
@@ -543,7 +563,16 @@
         if(e.image){ var im = document.createElement('img'); im.src = e.src; im.alt=''; thumb.appendChild(im); }
         else { thumb.style.background = e.color; thumb.textContent = (e.label || '?').slice(0,2).toUpperCase(); }
 
-        var name = document.createElement('span'); name.className='chip-name'; name.textContent = displayName(e);
+        var nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'chip-name-input';
+        nameInput.value = e.label || '';
+        nameInput.placeholder = e.image ? ('Zdjęcie ' + e.photoNo) : 'Wpisz nazwę...';
+        nameInput.addEventListener('input', function() {
+          e.label = nameInput.value.trim();
+          drawWheel();
+          saveState();
+        });
 
         var grp = document.createElement('div'); grp.className='pct-group';
         var inp = document.createElement('input');
@@ -566,7 +595,7 @@
         lock.addEventListener('click', function(){ toggleLock(e); });
         rm.addEventListener('click', function(){ removeEntry(e.id); });
 
-        li.appendChild(dot); li.appendChild(thumb); li.appendChild(name); li.appendChild(grp); li.appendChild(lock); li.appendChild(rm);
+        li.appendChild(dot); li.appendChild(thumb); li.appendChild(nameInput); li.appendChild(grp); li.appendChild(lock); li.appendChild(rm);
         listEl.appendChild(li);
         chipRefs[e.id] = { input: inp, lock: lock };
       })(entries[k]);
