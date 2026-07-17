@@ -96,6 +96,7 @@
   .btn:disabled{ opacity:.45; cursor:default; }
 
   .listbar{ display:flex; align-items:center; justify-content:space-between; margin:16px 2px 8px; }
+  .listbar-actions { display: flex; gap: 8px; }
   .count{ font-size:13px; color:var(--muted); }
   .hint{ font-size:12px; color:var(--muted); line-height:1.45; margin:0 2px 12px; }
   .hint b{ color:var(--cream); font-weight:600; }
@@ -108,7 +109,6 @@
   .chip-thumb{ width:32px; height:32px; border-radius:8px; overflow:hidden; flex:none; display:grid; place-items:center; font-size:11px; font-weight:700; color:#2a1c00; }
   .chip-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
   
-  /* Zmieniony element na pole tekstowe */
   .chip-name-input{ flex:1; min-width:0; font-size:13.5px; color:var(--cream); background:rgba(255,255,255,0.03); border:1px solid transparent; border-radius:6px; padding:6px 8px; font-family:inherit; transition:0.2s; }
   .chip-name-input:focus{ outline:none; border-color:var(--gold); background:var(--ink-2); }
   .chip-name-input::placeholder{ color:var(--muted); }
@@ -140,7 +140,6 @@
   @keyframes pop{ from{ transform:scale(.9); opacity:0; } to{ transform:scale(1); opacity:1; } }
   .m-eyebrow{ font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); font-weight:700; }
   
-  /* Powiększone kółko wylosowanego elementu */
   .m-media{ width:250px; height:250px; margin:16px auto 14px; border-radius:50%; overflow:hidden; display:grid; place-items:center; color:#2a1c00; font-family:var(--font-d); font-weight:900; font-size:34px; box-shadow:0 0 0 4px rgba(245,184,65,.9), 0 0 0 10px rgba(245,184,65,.2), 0 14px 30px rgba(0,0,0,.5); }
   .m-media img{ width:100%; height:100%; object-fit:cover; }
   
@@ -192,7 +191,10 @@
 
         <div class="listbar">
           <span class="count" id="count">0 elementów</span>
-          <button class="btn btn-ghost" id="clearBtn" disabled>Wyczyść</button>
+          <div class="listbar-actions">
+            <button class="btn btn-ghost" id="shareBtn" disabled>Udostępnij</button>
+            <button class="btn btn-ghost" id="clearBtn" disabled>Wyczyść</button>
+          </div>
         </div>
 
         <p class="hint" id="hint">Wpisz <b>%</b> przy pozycji, żeby ustawić jej szansę na stałe — reszta rozłoży się po równo. Puste pole = automat. Wpisz nazwę w polu przy zdjęciu, żeby dodać tekst.</p>
@@ -232,7 +234,7 @@
   var LOCK_CLOSED = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 
   var STORE_KEY = 'kolo.losowania.v1';
-  var MAX_DIM = 420;   // downscale longest edge before storing
+  var MAX_DIM = 420;
   var JPEG_Q = 0.82;
 
   var SIZE = 520;
@@ -267,6 +269,7 @@
   var textInput = document.getElementById('textInput');
   var addTextBtn = document.getElementById('addTextBtn');
   var clearBtn = document.getElementById('clearBtn');
+  var shareBtn = document.getElementById('shareBtn');
   var listEl = document.getElementById('list');
   var emptyEl = document.getElementById('empty');
   var hintEl = document.getElementById('hint');
@@ -276,7 +279,6 @@
   var resultEl = document.getElementById('result');
   var modal = document.getElementById('modal');
 
-  // ---------- helpers ----------
   function colorFor(i){ return PALETTE[i % PALETTE.length]; }
   function reassignColors(){ for(var i=0;i<entries.length;i++){ entries[i].color = colorFor(i); } }
   function displayName(e){ return e.label ? e.label : (e.image ? ('Zdjęcie ' + e.photoNo) : 'Bez nazwy'); }
@@ -290,12 +292,12 @@
     return 'elementów';
   }
 
-  // ---------- persistence (localStorage) ----------
   function serialize(){
     return entries.map(function(e){
       return { id:e.id, src:e.src, label:e.label, photoNo:e.photoNo, fixedPct:e.fixedPct, isImage: !!e.image };
     });
   }
+
   function saveState(){
     try{
       localStorage.setItem(STORE_KEY, JSON.stringify(serialize()));
@@ -305,12 +307,8 @@
       if(quota) showStorageWarn();
     }
   }
-  function loadState(){
-    var raw;
-    try{ raw = localStorage.getItem(STORE_KEY); }catch(err){ return; }
-    if(!raw) return;
-    var data;
-    try{ data = JSON.parse(raw); }catch(err){ return; }
+
+  function parseDataIntoEntries(data) {
     if(!Array.isArray(data)) return;
     var maxId = 0, maxPhoto = 0;
     entries = data.map(function(d){
@@ -325,6 +323,38 @@
     photoSeq = maxPhoto;
     reassignColors();
   }
+
+  function loadState(){
+    var raw;
+    try{ raw = localStorage.getItem(STORE_KEY); }catch(err){ return; }
+    if(!raw) return;
+    var data;
+    try{ data = JSON.parse(raw); }catch(err){ return; }
+    parseDataIntoEntries(data);
+  }
+
+  function loadFromCloud(cloudId) {
+    resultEl.textContent = 'Pobieranie danych koła...';
+    fetch('https://jsonblob.com/api/jsonBlob/' + cloudId)
+      .then(function(res) {
+        if (!res.ok) throw new Error('Network response was not ok');
+        return res.json();
+      })
+      .then(function(data) {
+        parseDataIntoEntries(data);
+        render();
+        saveState(); // Zapisz pobrane dane lokalnie
+        resultEl.textContent = 'Dane z linku zostały załadowane!';
+        // Opcjonalnie: usunięcie ID z linku po załadowaniu
+        window.history.replaceState({}, document.title, window.location.pathname);
+      })
+      .catch(function(err) {
+        alert('Nie udało się pobrać danych z linku. Być może link wygasł.');
+        loadState();
+        render();
+      });
+  }
+
   function showStorageWarn(){ if(storeWarnEl){ storeWarnEl.classList.add('show'); storeWarnEl.textContent = 'Pamięć przeglądarki jest pełna — najnowsze zmiany mogą się nie zapisać. Usuń kilka pozycji.'; } }
   function hideStorageWarn(){ if(storeWarnEl) storeWarnEl.classList.remove('show'); }
 
@@ -351,7 +381,6 @@
     reader.readAsDataURL(file);
   }
 
-  // ---------- probability model ----------
   function computePercents(){
     var n = entries.length, i;
     if(n === 0) return false;
@@ -391,7 +420,6 @@
     return segs;
   }
 
-  // ---------- drawing ----------
   function drawImageCover(img, x, y, w, h){
     var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
     if(!iw || !ih) return;
@@ -448,7 +476,6 @@
         ctx.save(); ctx.beginPath(); ctx.arc(0,0,d/2,0,Math.PI*2); ctx.closePath(); ctx.clip();
         drawImageCover(e.image, -d/2, -d/2, d, d);
         
-        // --- Tekst nakładany na zdjęcie ---
         if (e.label) {
           ctx.fillStyle = 'rgba(0,0,0,0.45)';
           ctx.fillRect(-d/2, -d/2, d, d);
@@ -460,7 +487,6 @@
           ctx.fillText(truncate(e.label, 14), 0, 0);
           ctx.shadowBlur = 0;
         }
-        // -----------------------------------
         
         ctx.restore();
         ctx.beginPath(); ctx.arc(0,0,d/2,0,Math.PI*2); ctx.lineWidth=Math.max(2,d*0.06); ctx.strokeStyle='rgba(255,255,255,0.92)'; ctx.stroke();
@@ -481,7 +507,6 @@
     ctx.lineWidth=3; ctx.strokeStyle='rgba(245,184,65,0.85)'; ctx.stroke();
   }
 
-  // ---------- winner geometry ----------
   function getWinnerIndex(){
     var n = entries.length; if(n === 0) return -1;
     var segs = buildSegs();
@@ -491,7 +516,6 @@
     return segs[segs.length-1].i;
   }
 
-  // ---------- spin ----------
   function spin(){
     if(spinning || entries.length < 2) return;
     closeModal();
@@ -530,7 +554,6 @@
     }
   }
 
-  // ---------- winner modal ----------
   function showWinner(i){
     var e = entries[i]; if(!e) return;
     highlightIndex = i; drawWheel();
@@ -550,7 +573,6 @@
 
   function closeModal(){ modal.classList.remove('open'); highlightIndex = -1; drawWheel(); }
 
-  // ---------- list / state ----------
   function render(){
     listEl.innerHTML = ''; chipRefs = {};
     for(var k=0;k<entries.length;k++){
@@ -646,6 +668,7 @@
     hub.disabled = n < 2 || spinning;
     hub.classList.toggle('ready', n >= 2 && !spinning);
     clearBtn.disabled = n === 0 || spinning;
+    shareBtn.disabled = n === 0 || spinning;
 
     if(spinning){ resultEl.textContent = 'Kręci się…'; return; }
     resultEl.innerHTML = '';
@@ -657,7 +680,6 @@
     } else { resultEl.textContent = 'Gotowe — naciśnij ZAKRĘĆ (albo spację)'; }
   }
 
-  // ---------- adding ----------
   function addImageFile(file){
     if(!file || file.type.indexOf('image') !== 0) return;
     downscaleImage(file, function(dataUrl){
@@ -684,7 +706,6 @@
     render(); saveState();
   }
 
-  // ---------- confetti ----------
   var cCanvas = document.getElementById('confetti');
   var cctx = cCanvas.getContext('2d');
   var confRAF = null;
@@ -715,7 +736,37 @@
     confRAF = requestAnimationFrame(step);
   }
 
-  // ---------- events ----------
+  // Funkcja udostępniania
+  shareBtn.addEventListener('click', function() {
+    if (entries.length === 0 || spinning) return;
+    shareBtn.textContent = 'Trwa...';
+    shareBtn.disabled = true;
+
+    fetch('https://jsonblob.com/api/jsonBlob', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(serialize())
+    })
+    .then(function(res) {
+      var locationHeader = res.headers.get('Location');
+      if (locationHeader) {
+        var parts = locationHeader.split('/');
+        var blobId = parts[parts.length - 1];
+        var shareUrl = window.location.origin + window.location.pathname + '?id=' + blobId;
+        prompt('Gotowe! Skopiuj poniższy link i wyślij go znajomym:', shareUrl);
+      } else {
+        alert('Nie udało się utworzyć linku.');
+      }
+    })
+    .catch(function(err) {
+      alert('Błąd połączenia podczas udostępniania.');
+    })
+    .finally(function() {
+      shareBtn.textContent = 'Udostępnij';
+      shareBtn.disabled = false;
+    });
+  });
+
   hub.addEventListener('click', spin);
   canvas.addEventListener('click', function(){ if(!spinning) spin(); });
 
@@ -752,8 +803,15 @@
   });
 
   // ---------- init ----------
-  loadState();
-  render();
+  var urlParams = new URLSearchParams(window.location.search);
+  var cloudId = urlParams.get('id');
+
+  if (cloudId) {
+    loadFromCloud(cloudId);
+  } else {
+    loadState();
+    render();
+  }
 })();
 </script>
 </body>
