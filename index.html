@@ -121,7 +121,11 @@
         <button type="button" data-d="brand" data-f="all" class="active">Wszystkie <span class="cnt"></span></button>
         <button type="button" data-d="brand" data-f="monster">Monster <span class="cnt"></span></button>
         <button type="button" data-d="brand" data-f="wkdzik">WK DZIK <span class="cnt"></span></button>
-        <button type="button" data-d="brand" data-f="wkdzik_nc">WK DZIK bez kofeiny <span class="cnt"></span></button>
+      </div>
+      <div class="filter" id="filterCaf" role="group" aria-label="Filtr kofeiny">
+        <button type="button" data-d="caf" data-f="all" class="active">Wszystko <span class="cnt"></span></button>
+        <button type="button" data-d="caf" data-f="caf">Z kofeiną <span class="cnt"></span></button>
+        <button type="button" data-d="caf" data-f="nocaf">Bez kofeiny <span class="cnt"></span></button>
       </div>
     </div>
 
@@ -160,15 +164,17 @@
   var DATA_URL = 'data.json';
   try{ var qp = new URLSearchParams(location.search); if(qp.get('data')) DATA_URL = qp.get('data'); }catch(e){}
 
-  // Filtry: cukier (all|nosugar|sugar) i marka (all|monster|wkdzik|wkdzik_nc).
-  // Można ustawić przez ?sugar=nosugar&brand=wkdzik
-  var fSugar = 'all', fBrand = 'all';
+  // Filtry: cukier (all|nosugar|sugar), marka (all|monster|wkdzik), kofeina (all|caf|nocaf).
+  // Można ustawić przez ?sugar=nosugar&brand=wkdzik&caf=caf
+  var fSugar = 'all', fBrand = 'all', fCaf = 'all';
   try{
     if(qp && qp.get){
       var _s = String(qp.get('sugar') || qp.get('filter') || '').toLowerCase();
       fSugar = (_s === 'sugar') ? 'sugar' : ((_s === 'nosugar' || _s === 'no-sugar') ? 'nosugar' : 'all');
       var _b = String(qp.get('brand') || '').toLowerCase();
-      fBrand = (_b === 'monster') ? 'monster' : ((_b === 'wkdzik' || _b === 'dzik') ? 'wkdzik' : ((_b === 'wkdzik_nc' || _b === 'wkdzik-nc' || _b === 'dzik_nc') ? 'wkdzik_nc' : 'all'));
+      fBrand = (_b === 'monster') ? 'monster' : ((_b === 'wkdzik' || _b === 'dzik') ? 'wkdzik' : 'all');
+      var _c = String(qp.get('caf') || '').toLowerCase();
+      fCaf = (_c === 'caf' || _c === 'caffeine' || _c === 'zkofeina') ? 'caf' : ((_c === 'nocaf' || _c === 'nocaffeine' || _c === 'bezkofeiny') ? 'nocaf' : 'all');
     }
   }catch(e){}
 
@@ -289,10 +295,12 @@
     hideBanner();
   }
 
-  // ---------- filtry: cukier + marka ----------
+  // ---------- filtry: cukier + marka + kofeina ----------
   var fBtns = [];
   function predSugar(e, v){ if(v === 'sugar') return !!e.tags.sugar; if(v === 'nosugar') return !!e.tags.nosugar; return true; }
-  function predBrand(e, v){ if(v === 'monster') return !!e.tags.monster; if(v === 'wkdzik') return !!e.tags.wkdzik; if(v === 'wkdzik_nc') return !!e.tags.wkdzik && !!e.tags.nocaffeine; return true; }
+  function predBrand(e, v){ if(v === 'monster') return !!e.tags.monster; if(v === 'wkdzik') return !!e.tags.wkdzik; return true; }
+  function predCaf(e, v){ if(v === 'caf') return !e.tags.nocaffeine; if(v === 'nocaf') return !!e.tags.nocaffeine; return true; }
+  function matchEntry(e, sv, bv, cv){ return predSugar(e, sv) && predBrand(e, bv) && predCaf(e, cv); }
   function initFilterUI(){
     fBtns = Array.prototype.slice.call(document.querySelectorAll('.filter button'));
     for(var i=0;i<fBtns.length;i++){
@@ -302,7 +310,8 @@
   }
   function setFilter(dim, value){
     if(spinning) return;
-    if(dim === 'brand') fBrand = (value === 'monster' || value === 'wkdzik' || value === 'wkdzik_nc') ? value : 'all';
+    if(dim === 'brand') fBrand = (value === 'monster' || value === 'wkdzik') ? value : 'all';
+    else if(dim === 'caf') fCaf = (value === 'caf' || value === 'nocaf') ? value : 'all';
     else fSugar = (value === 'sugar' || value === 'nosugar') ? value : 'all';
     lastWinnerName = null;
     closeModal();
@@ -310,25 +319,22 @@
     syncUrl();
   }
   function applyFilter(){
-    entries = allEntries.filter(function(e){ return predSugar(e, fSugar) && predBrand(e, fBrand); });
+    entries = allEntries.filter(function(e){ return matchEntry(e, fSugar, fBrand, fCaf); });
     reassignColors();
     render();
     updateFilterUI();
   }
   function countFor(dim, value){
+    var sv = fSugar, bv = fBrand, cv = fCaf;
+    if(dim === 'brand') bv = value; else if(dim === 'caf') cv = value; else sv = value;
     var n = 0;
-    for(var i=0;i<allEntries.length;i++){
-      var e = allEntries[i], okS, okB;
-      if(dim === 'brand'){ okB = predBrand(e, value); okS = predSugar(e, fSugar); }
-      else { okS = predSugar(e, value); okB = predBrand(e, fBrand); }
-      if(okS && okB) n++;
-    }
+    for(var i=0;i<allEntries.length;i++){ if(matchEntry(allEntries[i], sv, bv, cv)) n++; }
     return n;
   }
   function updateFilterUI(){
     for(var i=0;i<fBtns.length;i++){
       var b = fBtns[i], dim = b.getAttribute('data-d'), val = b.getAttribute('data-f');
-      var cur = (dim === 'brand') ? fBrand : fSugar;
+      var cur = (dim === 'brand') ? fBrand : (dim === 'caf') ? fCaf : fSugar;
       b.classList.toggle('active', cur === val);
       var c = b.querySelector('.cnt');
       if(c) c.textContent = '(' + countFor(dim, val) + ')';
@@ -340,6 +346,7 @@
       p.delete('filter');
       if(fSugar === 'all') p.delete('sugar'); else p.set('sugar', fSugar);
       if(fBrand === 'all') p.delete('brand'); else p.set('brand', fBrand);
+      if(fCaf === 'all') p.delete('caf'); else p.set('caf', fCaf);
       var q = p.toString();
       history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash);
     }catch(e){}
