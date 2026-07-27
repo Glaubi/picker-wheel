@@ -12,7 +12,7 @@
     { "label": "Ultra Strawberry Dreams",           "image": "images/13.png", "color": "#DE3A57", "tags": ["nosugar", "monster"] },
     { "label": "Hamilton",                 "image": "images/5.png",       "color": "#F6A785", "tags": ["nosugar", "monster"] },
     { "label": "Lando",                 "image": "images/6.png",       "color": "#C9A227", "tags": ["nosugar", "monster"] },
-    { "label": "Monster Energy VR46 Zero Sugar",         "image": "images/7.png",        "color": "#6FAE2F", "tags": ["sugar", "monster"] },
+    { "label": "Monster Energy VR46 Zero Sugar",         "image": "images/7.png",        "color": "#6FAE2F", "tags": ["nosugar", "monster"] },
     { "label": "Ultra Peachy",                     "image": "images/12.png",           "color": "#F39B1E", "tags": ["nosugar", "monster"] },
     { "label": "Ultra Black",                     "image": "images/14.png",           "color": "#F39B1E", "tags": ["nosugar", "monster"] },
     { "label": "Ultra Vice Guava",                     "image": "images/16.png",           "color": "#F39B1E", "tags": ["nosugar", "monster"] },
