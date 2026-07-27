@@ -52,7 +52,7 @@
     { "label": "DZIK tropic",         "image": "images/44.png",  "color": "#EFA46A", "tags": ["nosugar", "wkdzik"] },
     { "label": "DZIK lemon",         "image": "images/45.png",  "color": "#EFA46A", "tags": ["nosugar", "wkdzik"] },
     { "label": "DZIK watermelon",         "image": "images/46.png",  "color": "#EFA46A", "tags": ["nosugar", "wkdzik"] },
-    { "label": "DZIK sour raspberry",         "image": "images/47.png",  "color": "#EFA46A", "tags": ["nosugar", "wkdzik"] },
+    { "label": "DZIK sour raspberry",         "image": "images/47.png",  "color": "#EFA46A", "tags": ["nosugar", "wkdzik"] }
 
   ]
 }
